@@ -1,1 +1,1465 @@
-placeholder
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="slides-format" content="viewport">
+    <title>Pump Impeller 최적화 설계 — 유체기계설계 Term Project</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style type="text/tailwindcss">
+        @theme {
+            --color-bg: #f0f4f8;
+            --color-bg-deep: #e2eaf3;
+            --color-surface: #ffffff;
+            --color-text: #0f2040;
+            --color-text-secondary: #2d4a6a;
+            --color-text-muted: #5a7a99;
+            --color-accent-1: #1a5fa8;
+            --color-accent-2: #2ec4ff;
+            --color-accent-3: #f59e0b;
+            --color-glass-bg: rgba(255,255,255,0.82);
+            --color-glass-border: rgba(26,95,168,0.12);
+            --color-vignette: rgba(15,32,64,0.05);
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Inter', Arial, sans-serif;
+        }
+    </style>
+
+    <style>
+        :root {
+            --color-bg: #f0f4f8;
+            --color-text: #0f2040;
+            --glow-color-rgb: 26,95,168;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { background: var(--color-bg); margin: 0; }
+        body { font-family: 'Inter', Arial, sans-serif; color: #0f2040; overflow: hidden; height: 100vh; width: 100vw; }
+        .deck { width: 100vw; height: 100vh; position: relative; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.97); transition: opacity 0.6s ease, transform 0.6s ease; pointer-events: none; overflow: hidden; }
+        .slide.active { opacity: 1; transform: scale(1); pointer-events: all; }
+        .slide > .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: clamp(1.2rem, 3vw, 3rem); }
+        .nav-controls { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; z-index: 100; background: rgba(255,255,255,0.88); backdrop-filter: blur(10px); padding: 8px 22px; border-radius: 40px; border: 1px solid rgba(26,95,168,0.15); box-shadow: 0 4px 16px rgba(26,95,168,0.12); }
+        .nav-btn { width: 36px; height: 36px; border: none; background: rgba(26,95,168,0.08); color: #1a5fa8; border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .nav-btn:hover { background: rgba(26,95,168,0.18); }
+        .slide-dots { display: flex; gap: 6px; flex-wrap: wrap; max-width: 340px; justify-content: center; }
+        .slide-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(26,95,168,0.25); cursor: pointer; transition: background 0.3s, transform 0.3s; }
+        .slide-dots .dot.active { background: #1a5fa8; transform: scale(1.35); }
+        .slide-counter { font-size: 0.75rem; color: #5a7a99; min-width: 38px; text-align: center; font-weight: 600; }
+        .reveal { opacity: 0; transform: translateY(18px); }
+
+        /* Gradient mesh */
+        .gradient-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(70px); animation: float-slow 12s ease-in-out infinite; }
+        .blob:nth-child(2) { animation: float-drift 16s ease-in-out infinite; }
+        .blob:nth-child(3) { animation: float-slow 20s ease-in-out infinite reverse; }
+        @keyframes float-slow { 0%{transform:translate(0,0) scale(1)} 25%{transform:translate(50px,-40px) scale(1.1)} 50%{transform:translate(-30px,35px) scale(0.92)} 75%{transform:translate(45px,18px) scale(1.06)} 100%{transform:translate(0,0) scale(1)} }
+        @keyframes float-drift { 0%{transform:translate(0,0) scale(1) rotate(0deg)} 33%{transform:translate(-45px,-55px) scale(1.13) rotate(2deg)} 66%{transform:translate(38px,28px) scale(0.9) rotate(-2deg)} 100%{transform:translate(0,0) scale(1) rotate(0deg)} }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+        /* Cinematic depth */
+        .slide::after { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at center, transparent 55%, rgba(15,32,64,0.05) 100%); }
+
+        /* Mouse spotlight */
+        .mouse-spotlight { position:fixed; inset:0; z-index:99; pointer-events:none; }
+
+        /* Glow */
+        .text-glow { text-shadow: 0 0 20px rgba(26,95,168,0.35), 0 0 40px rgba(26,95,168,0.15); }
+        .stat-glow { text-shadow: 0 0 30px rgba(26,95,168,0.5), 0 0 60px rgba(26,95,168,0.2); }
+        @keyframes glow-pulse { 0%,100%{text-shadow:0 0 20px rgba(26,95,168,0.4),0 0 40px rgba(26,95,168,0.15)} 50%{text-shadow:0 0 30px rgba(26,95,168,0.7),0 0 60px rgba(26,95,168,0.25)} }
+        .glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+
+        /* Card styles */
+        .glass-card { background: rgba(255,255,255,0.85); border: 1px solid rgba(26,95,168,0.12); border-radius: 16px; padding: 1.25rem 1.5rem; box-shadow: 0 4px 20px rgba(26,95,168,0.08); }
+        .accent-card { background: #ffffff; border: 1px solid rgba(26,95,168,0.1); border-radius: 14px; padding: 1.2rem 1.4rem; box-shadow: 0 2px 12px rgba(26,95,168,0.07); }
+        .blue-card { background: linear-gradient(135deg, #1a5fa8 0%, #1e7ac4 100%); border-radius: 14px; padding: 1.2rem 1.5rem; color: #fff; }
+        .tag { display:inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+        .tag-blue { background: rgba(26,95,168,0.1); color: #1a5fa8; }
+        .tag-green { background: rgba(34,197,94,0.1); color: #16a34a; }
+        .tag-orange { background: rgba(245,158,11,0.1); color: #b45309; }
+        .tag-red { background: rgba(239,68,68,0.1); color: #dc2626; }
+
+        /* Tables */
+        table { width:100%; border-collapse:separate; border-spacing:0; }
+        th { background: #1a5fa8; color: #fff; padding: 8px 12px; font-size: 0.78rem; font-weight: 700; text-align: center; }
+        th:first-child { border-radius: 10px 0 0 0; }
+        th:last-child { border-radius: 0 10px 0 0; }
+        td { padding: 7px 12px; font-size: 0.76rem; text-align: center; border-bottom: 1px solid rgba(26,95,168,0.07); }
+        tr:nth-child(even) td { background: rgba(26,95,168,0.035); }
+        tr:last-child td:first-child { border-radius: 0 0 0 10px; }
+        tr:last-child td:last-child { border-radius: 0 0 10px 0; }
+        tr.highlight td { background: rgba(46,196,255,0.12)!important; font-weight: 700; color: #1a5fa8; }
+
+        /* Photo placeholder */
+        .photo-box { background: linear-gradient(135deg, #e8f0f8 0%, #d5e6f5 100%); border: 2px dashed #7aadda; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2d6ea0; font-size: 0.78rem; font-weight: 600; text-align: center; padding: 12px; gap: 6px; }
+        .photo-icon { font-size: 1.8rem; }
+
+        /* Section header accent */
+        .section-num { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#1a5fa8,#2ec4ff); color:#fff; font-weight:800; font-size:0.85rem; flex-shrink:0; }
+
+        /* Slide title bar */
+        .slide-title { font-family:'Instrument Serif',Georgia,serif; font-size:clamp(1.5rem,3.2vw,2.2rem); font-weight:400; color:#0f2040; margin-bottom:0.15rem; }
+        .slide-subtitle { font-size:0.8rem; font-weight:600; color:#1a5fa8; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:1rem; }
+        .title-underline { height:3px; width:52px; background:linear-gradient(90deg,#1a5fa8,#2ec4ff); border-radius:2px; margin-bottom:1.2rem; }
+
+        /* Bar chart */
+        .bar-chart-h { display:flex; flex-direction:column; gap:8px; }
+        .bar-row { display:grid; grid-template-columns: 120px 1fr 60px; align-items:center; gap:10px; }
+        .bar-label { font-size:0.75rem; font-weight:600; color:#2d4a6a; text-align:right; }
+        .bar-track { height:22px; background:rgba(26,95,168,0.08); border-radius:6px; overflow:hidden; }
+        .bar-fill { height:100%; border-radius:6px; transition:width 0.9s ease; }
+        .bar-val { font-size:0.76rem; font-weight:700; color:#1a5fa8; }
+
+        /* Timeline */
+        .timeline-line { position:absolute; left:18px; top:0; bottom:0; width:2px; background:linear-gradient(180deg,#1a5fa8,#2ec4ff); z-index:0; }
+        .timeline-dot { width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg,#1a5fa8,#2ec4ff); flex-shrink:0; box-shadow:0 0 0 3px rgba(26,95,168,0.15); z-index:1; }
+
+        /* Convergence table style */
+        .conv-row { display:grid; grid-template-columns: 80px 100px 100px 80px 80px 90px; gap:1px; }
+
+        /* Reference style */
+        .ref { font-size: 0.63rem; color: #7a9ab5; line-height: 1.5; }
+        .ref a { color: #1a5fa8; text-decoration: none; }
+
+        /* Particle canvas */
+        canvas.particle-canvas { position:absolute; inset:0; z-index:1; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="mouse-spotlight"></div>
+
+<div class="deck">
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 1: 표지
+────────────────────────────────────────────────── -->
+<div class="slide slide-1 active" data-slide="1" style="background: linear-gradient(150deg, #0d2645 0%, #102f5a 50%, #0a1e38 100%);">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:500px;height:500px;top:-120px;right:-80px;background:#1a5fa8;opacity:0.18;"></div>
+        <div class="blob" style="width:300px;height:300px;bottom:-60px;left:-60px;background:#2ec4ff;opacity:0.12;"></div>
+        <div class="blob" style="width:220px;height:220px;top:45%;left:10%;background:#f59e0b;opacity:0.08;"></div>
+    </div>
+    <canvas class="particle-canvas"></canvas>
+    <div class="content text-center" style="color:#fff;">
+        <div style="font-size:88px;animation:float 3.5s ease-in-out infinite;margin-bottom:1rem;" class="reveal">🌀</div>
+        <div style="font-size:0.8rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#7ec8f0;margin-bottom:0.6rem;" class="reveal">유체기계설계 · Term Project</div>
+        <h1 style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(2.2rem,5.5vw,4rem);font-weight:400;background:linear-gradient(135deg,#7ec8f0,#ffffff,#f0d080);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.15;margin-bottom:0.8rem;" class="reveal">Pump Impeller<br>최적화 설계</h1>
+        <div style="display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-bottom:1.2rem;" class="reveal">
+            <span style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 16px;font-size:0.75rem;color:#b0d8f5;">ANSYS BladeGen</span>
+            <span style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 16px;font-size:0.75rem;color:#b0d8f5;">TurboGrid</span>
+            <span style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 16px;font-size:0.75rem;color:#b0d8f5;">CFX</span>
+        </div>
+        <div style="display:flex;justify-content:center;gap:28px;flex-wrap:wrap;" class="reveal">
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(46,196,255,0.3);border-radius:12px;padding:10px 20px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:800;color:#2ec4ff;">≥ 37 m</div>
+                <div style="font-size:0.68rem;color:#7ec8f0;text-transform:uppercase;letter-spacing:0.1em;">Head 목표</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(46,196,255,0.3);border-radius:12px;padding:10px 20px;text-align:center;">
+                <div style="font-size:1.3rem;font-weight:800;color:#2ec4ff;">≥ 80 %</div>
+                <div style="font-size:0.68rem;color:#7ec8f0;text-transform:uppercase;letter-spacing:0.1em;">Static Efficiency 목표</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 2: 목차
+────────────────────────────────────────────────── -->
+<div class="slide slide-2" data-slide="2">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:300px;height:300px;top:-60px;right:-60px;background:#1a5fa8;opacity:0.07;"></div>
+        <div class="blob" style="width:200px;height:200px;bottom:-40px;left:-30px;background:#2ec4ff;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Contents</div></div>
+        <h2 class="slide-title reveal">목차</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="reveal">
+            <div class="glass-card" style="border-left:3px solid #1a5fa8;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">01</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">프로젝트 개요 및 배경</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">목표 성능 · 해석 조건 · 설계 자유도</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #2ec4ff;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">02</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">설계 변수 선정 및 근거</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">6개 핵심 파라미터 · 논문 근거</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #1a5fa8;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">03</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">최적화 전략 (4단계 프로세스)</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">베이스라인 → DOE → Kriging → 검증</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #f59e0b;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">04</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">격자 독립성 검사</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">5단계 격자 · 수렴 곡선 · 최적 격자 선정</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #2ec4ff;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">05</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">DOE 샘플 설계 (50 Case)</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">Latin Hypercube · 블레이드 수별 분류</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #1a5fa8;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">06</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">Kriging 대리모델 및 최적화</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">대리모델 구축 · 최적해 탐색 · CFD 검증</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #f59e0b;grid-column:1/-1;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    <div class="section-num">07</div>
+                    <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">결론 및 고찰 · 참고문헌</div>
+                </div>
+                <div style="font-size:0.75rem;color:#5a7a99;padding-left:42px;">목표 달성 확인 · 대리모델 검증 오차 · 인용 문헌</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 3: 프로젝트 개요
+────────────────────────────────────────────────── -->
+<div class="slide slide-3" data-slide="3">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-50px;background:#1a5fa8;opacity:0.06;"></div>
+        <div class="blob" style="width:180px;height:180px;bottom:-30px;left:-20px;background:#2ec4ff;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 01</div></div>
+        <h2 class="slide-title reveal">프로젝트 개요 및 배경</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;" class="reveal">
+            <!-- 목표 -->
+            <div class="blue-card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;opacity:0.8;margin-bottom:8px;">🎯 설계 목표</div>
+                <div style="margin-bottom:6px;">
+                    <div style="font-size:1.6rem;font-weight:800;">≥ 37 m</div>
+                    <div style="font-size:0.72rem;opacity:0.85;">양정 (Head)</div>
+                </div>
+                <div>
+                    <div style="font-size:1.6rem;font-weight:800;">≥ 80 %</div>
+                    <div style="font-size:0.72rem;opacity:0.85;">정적 효율 (Static Eff.)</div>
+                </div>
+            </div>
+            <!-- 해석 조건 -->
+            <div class="glass-card" style="grid-row:span 1;">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1a5fa8;margin-bottom:8px;">⚙️ 해석 조건 (고정)</div>
+                <table style="font-size:0.74rem;">
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Mass flow rate</td><td style="text-align:right;font-weight:700;padding:3px 0;">97.22 kg/s</td></tr>
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Inlet Pressure</td><td style="text-align:right;font-weight:700;padding:3px 0;">0 atm (rel.)</td></tr>
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Ref. Pressure</td><td style="text-align:right;font-weight:700;padding:3px 0;">1 atm</td></tr>
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Angular vel.</td><td style="text-align:right;font-weight:700;padding:3px 0;">1,250 RPM</td></tr>
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Fluid</td><td style="text-align:right;font-weight:700;padding:3px 0;">Water</td></tr>
+                    <tr><td style="text-align:left;color:#5a7a99;padding:3px 0;">Turbulence</td><td style="text-align:right;font-weight:700;padding:3px 0;">SST k-ω</td></tr>
+                </table>
+            </div>
+            <!-- 설계 요소 -->
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1a5fa8;margin-bottom:8px;">🔧 설계 변수 (변경 가능)</div>
+                <ul style="font-size:0.76rem;color:#2d4a6a;line-height:2;margin:0;padding:0;list-style:none;">
+                    <li>✅ 블레이드 날개 수</li>
+                    <li>✅ 블레이드 출각 (β₂)</li>
+                    <li>✅ 두께 (TE)</li>
+                    <li>✅ Tip Clearance (Shroud)</li>
+                    <li>✅ Wrap Angle</li>
+                    <li>✅ 블레이드 길이 / LE 형상</li>
+                </ul>
+                <div style="margin-top:8px;font-size:0.68rem;color:#5a7a99;">❌ 임펠러 외경·높이·Hub·Shroud 형상 고정</div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;padding:10px 14px;background:rgba(26,95,168,0.06);border-radius:10px;border-left:3px solid #1a5fa8;font-size:0.78rem;color:#2d4a6a;">
+            <strong>📌 핵심 관점:</strong> 단순히 목표를 달성했는가보다, <em>왜 해당 파라미터를 설정했는지의 논리</em>가 주요 평가 요소입니다. 각 설계 결정의 이론적 근거를 명확히 제시합니다.
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 4: 설계 변수 선정 근거 (1) — 블레이드 수 & 출각
+────────────────────────────────────────────────── -->
+<div class="slide slide-4" data-slide="4">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-50px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 02 · 설계 변수 선정 근거</div></div>
+        <h2 class="slide-title reveal">핵심 설계 파라미터 선정 (1/3)</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <!-- 블레이드 출각 -->
+            <div class="glass-card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.3rem;">📐</span>
+                    <div>
+                        <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">블레이드 출각 β₂</div>
+                        <span class="tag tag-blue">변수 범위: 15° ~ 45°</span>
+                    </div>
+                </div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.65;margin-bottom:8px;">
+                    오일러 방정식에 의해 결정되는 <strong>근본 원리</strong>. 97.22 kg/s 고유량 조건에서 출각이 과도하면 수력 손실이 급증하므로 최적 탐색이 필수적이다.
+                </p>
+                <div style="font-size:0.71rem;color:#1a5fa8;background:rgba(26,95,168,0.06);border-radius:8px;padding:6px 10px;">
+                    <strong>이론 근거:</strong> 유량↑ → 출각 영향 더 증폭 (고유량 효율 민감도 증가)<br>
+                    <span style="color:#5a7a99;">Cavitation and wear in industrial pump operation (Vacuum Journal, 2019)</span>
+                </div>
+            </div>
+            <!-- 블레이드 수 -->
+            <div class="glass-card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.3rem;">🔢</span>
+                    <div>
+                        <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">블레이드 개수 N_b</div>
+                        <span class="tag tag-blue">변수 범위: 5 ~ 9개</span>
+                    </div>
+                </div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.65;margin-bottom:8px;">
+                    1,250 RPM ← 낮은 비속도(N_s) 조건. 블레이드 수를 늘려 <strong>유동 안정성</strong>을 확보하는 전략이 효과적. 5개→9개 범위에서 최적값 탐색.
+                </p>
+                <div style="font-size:0.71rem;color:#1a5fa8;background:rgba(26,95,168,0.06);border-radius:8px;padding:6px 10px;">
+                    <strong>이론 근거:</strong> 저속·고유량 → 블레이드 간격↑ → Flow Separation 위험<br>
+                    <span style="color:#5a7a99;">Effect of Blade Number on Centrifugal Pump (ANSYS, Academia 2023)</span>
+                </div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;" class="reveal">
+            <!-- Tip Clearance -->
+            <div class="glass-card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.3rem;">🔩</span>
+                    <div>
+                        <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">Tip Clearance (Shroud)</div>
+                        <span class="tag tag-orange">저속 조건에서 영향 더 큼</span>
+                    </div>
+                </div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.65;margin-bottom:6px;">
+                    1,250 RPM 저속 → 팁 누설 유동의 상대적 비중이 증가. NASA 연구에 따르면 회전수↓일수록 Tip Clearance가 Head 계수에 미치는 영향이 더 뚜렷함.
+                </p>
+                <div style="font-size:0.71rem;color:#1a5fa8;background:rgba(26,95,168,0.06);border-radius:8px;padding:6px 10px;">
+                    <span style="color:#5a7a99;">Effect of tip clearance on axial-flow pump performance (NASA TR, 1973)</span>
+                </div>
+            </div>
+            <!-- TE 형상 -->
+            <div class="glass-card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.3rem;">✂️</span>
+                    <div>
+                        <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">TE 형상 및 두께</div>
+                        <span class="tag tag-green">고유량에서 효과 극대화</span>
+                    </div>
+                </div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.65;margin-bottom:6px;">
+                    97.22 kg/s 고유량 → Trailing Edge 후류 압력 손실이 크므로, TE 두께를 줄일 때 얻는 효율 개선이 소유량 대비 상대적으로 더 크다.
+                </p>
+                <div style="font-size:0.71rem;color:#1a5fa8;background:rgba(26,95,168,0.06);border-radius:8px;padding:6px 10px;">
+                    <span style="color:#5a7a99;">Trailing edge shape optimization for centrifugal pump (Energy Technology, 2025)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 5: 설계 변수 선정 근거 (2) — Wrap Angle + 정리
+────────────────────────────────────────────────── -->
+<div class="slide slide-5" data-slide="5">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:260px;height:260px;top:-50px;right:-40px;background:#2ec4ff;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 02 · 설계 변수 선정 근거</div></div>
+        <h2 class="slide-title reveal">핵심 설계 파라미터 선정 (2/3) — Wrap Angle & 변수 정리</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div class="glass-card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:1.3rem;">🌀</span>
+                    <div>
+                        <div style="font-weight:700;font-size:0.92rem;color:#0f2040;">Wrap Angle (랩 각도)</div>
+                        <span class="tag tag-blue">유동 안정성 직결</span>
+                    </div>
+                </div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.65;margin-bottom:8px;">
+                    Frontiers in Energy Research (PMC) 연구에서 다양한 유량에서의 랩 각도 영향을 검증. 랩 각도 증가 시 유동 경로가 완만해져 <strong>유동 박리 억제 및 효율 향상</strong>에 기여.
+                </p>
+                <div style="font-size:0.71rem;color:#1a5fa8;background:rgba(26,95,168,0.06);border-radius:8px;padding:6px 10px;">
+                    <span style="color:#5a7a99;">Wrap angle effects on centrifugal pump (Frontiers Energy Research, PMC 2023)</span>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1a5fa8;margin-bottom:10px;">📊 설계 변수 적용 가능성 요약</div>
+                <table>
+                    <thead><tr><th>변수</th><th>적용 근거</th><th>1,250 RPM</th><th>97.22 kg/s</th></tr></thead>
+                    <tbody>
+                        <tr><td>출각 β₂</td><td>오일러 방정식</td><td>✅</td><td>⬆️ 더 큼</td></tr>
+                        <tr><td>블레이드 수</td><td>유동 분리 방지</td><td>✅</td><td>✅</td></tr>
+                        <tr><td>Tip Clearance</td><td>누설 유동</td><td>⬆️ 더 큼</td><td>✅</td></tr>
+                        <tr><td>TE 형상</td><td>후류 압력 손실</td><td>✅</td><td>⬆️ 더 큼</td></tr>
+                        <tr class="highlight"><td>Wrap Angle</td><td>유동 박리 억제</td><td>✅</td><td>✅</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;background:linear-gradient(135deg,rgba(26,95,168,0.07),rgba(46,196,255,0.07));border:1px solid rgba(26,95,168,0.15);border-radius:12px;padding:12px 16px;">
+            <div style="font-size:0.82rem;font-weight:700;color:#0f2040;margin-bottom:6px;">🔑 파라미터 선정의 핵심 논리</div>
+            <div style="font-size:0.76rem;color:#2d4a6a;line-height:1.7;">
+                본 조건(1,250 RPM, 97.22 kg/s)은 <strong>낮은 회전수 + 높은 유량</strong>이라는 특수 조합이다. 이는 (1) 팁 누설 비중 증가, (2) 유동 분리 위험 증가, (3) 출각의 효율 민감도 증폭이라는 복합 특성을 가지므로, 위 5개 변수는 모두 강한 물리적 근거를 갖는다.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 6: 최적화 전략 (4단계)
+────────────────────────────────────────────────── -->
+<div class="slide slide-6" data-slide="6">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:300px;height:300px;top:-60px;right:-40px;background:#1a5fa8;opacity:0.07;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 03</div></div>
+        <h2 class="slide-title reveal">최적화 전략 — 4단계 프로세스</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;" class="reveal">
+            <div class="glass-card" style="text-align:center;border-top:3px solid #1a5fa8;">
+                <div style="font-size:1.8rem;margin-bottom:6px;">📊</div>
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Step 1</div>
+                <div style="font-weight:700;font-size:0.88rem;color:#0f2040;margin-bottom:6px;">베이스라인 분석</div>
+                <div style="font-size:0.73rem;color:#5a7a99;line-height:1.6;">주어진 Original 모델(5개 블레이드) CFD 해석. 현재 Head · Efficiency 기록.</div>
+                <div style="margin-top:8px;font-size:0.71rem;background:rgba(26,95,168,0.07);border-radius:8px;padding:5px 8px;color:#1a5fa8;">얼마나 부족한지 파악이 출발점</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-top:3px solid #2ec4ff;">
+                <div style="font-size:1.8rem;margin-bottom:6px;">🎲</div>
+                <div style="font-size:0.72rem;font-weight:700;color:#2ec4ff;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Step 2</div>
+                <div style="font-weight:700;font-size:0.88rem;color:#0f2040;margin-bottom:6px;">DOE 샘플 구성</div>
+                <div style="font-size:0.73rem;color:#5a7a99;line-height:1.6;"><strong>50 Case</strong> 설계.<br>5개 변수 × 블레이드수별(5~9) LHS 샘플링.</div>
+                <div style="margin-top:8px;font-size:0.71rem;background:rgba(46,196,255,0.08);border-radius:8px;padding:5px 8px;color:#0891B2;">Latin Hypercube Sampling 적용</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-top:3px solid #f59e0b;">
+                <div style="font-size:1.8rem;margin-bottom:6px;">🤖</div>
+                <div style="font-size:0.72rem;font-weight:700;color:#f59e0b;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Step 3</div>
+                <div style="font-weight:700;font-size:0.88rem;color:#0f2040;margin-bottom:6px;">Kriging 대리모델</div>
+                <div style="font-size:0.73rem;color:#5a7a99;line-height:1.6;">50개 데이터로 Kriging 구축. Head ≥ 37m & Eff ≥ 80% 동시 만족 최적점 탐색.</div>
+                <div style="margin-top:8px;font-size:0.71rem;background:rgba(245,158,11,0.08);border-radius:8px;padding:5px 8px;color:#b45309;">수천 가지 조합 수학적 예측</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-top:3px solid #22c55e;">
+                <div style="font-size:1.8rem;margin-bottom:6px;">✅</div>
+                <div style="font-size:0.72rem;font-weight:700;color:#16a34a;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Step 4</div>
+                <div style="font-weight:700;font-size:0.88rem;color:#0f2040;margin-bottom:6px;">CFD 최종 검증</div>
+                <div style="font-size:0.73rem;color:#5a7a99;line-height:1.6;">최적 조합으로 실제 CFD 재해석. 대리모델 예측과 실제 값 비교하여 모델 신뢰성 확인.</div>
+                <div style="margin-top:8px;font-size:0.71rem;background:rgba(34,197,94,0.08);border-radius:8px;padding:5px 8px;color:#16a34a;">오차 < 1% 목표</div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:12px;">
+            <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-align:center;margin-bottom:6px;letter-spacing:0.08em;text-transform:uppercase;">최적화 루프 플로우차트</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+                <span style="background:#e8f0f8;border-radius:8px;padding:5px 12px;font-size:0.73rem;font-weight:600;color:#1a5fa8;">DOE 설계</span>
+                <span style="color:#1a5fa8;font-size:1rem;">→</span>
+                <span style="background:#e8f0f8;border-radius:8px;padding:5px 12px;font-size:0.73rem;font-weight:600;color:#1a5fa8;">CFD 시뮬레이션</span>
+                <span style="color:#1a5fa8;font-size:1rem;">→</span>
+                <span style="background:#e8f0f8;border-radius:8px;padding:5px 12px;font-size:0.73rem;font-weight:600;color:#1a5fa8;">Surrogate Model 구축</span>
+                <span style="color:#1a5fa8;font-size:1rem;">→</span>
+                <span style="background:#e8f0f8;border-radius:8px;padding:5px 12px;font-size:0.73rem;font-weight:600;color:#1a5fa8;">최적화 (Optimizer)</span>
+                <span style="color:#1a5fa8;font-size:1rem;">→</span>
+                <span style="background:linear-gradient(90deg,#1a5fa8,#2ec4ff);border-radius:8px;padding:5px 12px;font-size:0.73rem;font-weight:700;color:#fff;">수렴 → 최적 설계</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 7: 베이스라인 해석 결과
+────────────────────────────────────────────────── -->
+<div class="slide slide-7" data-slide="7">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-50px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Step 1 · 베이스라인</div></div>
+        <h2 class="slide-title reveal">Original 모델 해석 결과 (블레이드 5개)</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="reveal">
+            <!-- 베이스라인 수치 -->
+            <div>
+                <div class="glass-card" style="margin-bottom:12px;">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">📌 Original Model CFD 결과</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:10px;padding:10px;text-align:center;">
+                            <div style="font-size:1.4rem;font-weight:800;color:#dc2626;">~32.5 m</div>
+                            <div style="font-size:0.7rem;color:#5a7a99;">Head (목표: 37m)</div>
+                            <div style="font-size:0.68rem;color:#dc2626;margin-top:3px;">△ 4.5m 부족</div>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:10px;padding:10px;text-align:center;">
+                            <div style="font-size:1.4rem;font-weight:800;color:#dc2626;">~75.9 %</div>
+                            <div style="font-size:0.7rem;color:#5a7a99;">Static Eff. (목표: 80%)</div>
+                            <div style="font-size:0.68rem;color:#dc2626;margin-top:3px;">△ 4.1% 부족</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">🎯 개선 필요 사항</div>
+                    <ul style="font-size:0.77rem;color:#2d4a6a;line-height:1.8;padding-left:18px;margin:0;">
+                        <li>Head: <strong>+4.5m 이상</strong> 추가 확보 필요</li>
+                        <li>Static Eff.: <strong>+4.1% 이상</strong> 향상 필요</li>
+                        <li>블레이드 5개 → <strong>최적 개수 재탐색</strong> 필요</li>
+                        <li>현재 설계는 두 목표를 <strong>동시 미달</strong></li>
+                    </ul>
+                </div>
+            </div>
+            <!-- 사진 플레이스홀더 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="photo-box" style="min-height:120px;">
+                    <div class="photo-icon">🖼️</div>
+                    <div><strong>Original 모델</strong><br>BladeGen 3D 형상 캡처<br>(블레이드 5개)</div>
+                </div>
+                <div class="photo-box" style="min-height:120px;">
+                    <div class="photo-icon">🎨</div>
+                    <div><strong>압력 Contour</strong><br>Original 모델<br>CFX 결과 화면</div>
+                </div>
+                <div class="photo-box" style="min-height:120px;">
+                    <div class="photo-icon">🌊</div>
+                    <div><strong>Streamline</strong><br>Original 모델<br>유동 흐름 분포</div>
+                </div>
+                <div class="photo-box" style="min-height:120px;">
+                    <div class="photo-icon">⚡</div>
+                    <div><strong>속도 Vector</strong><br>Original 모델<br>CFX 결과 화면</div>
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;font-size:0.74rem;color:#5a7a99;padding:8px 12px;background:rgba(26,95,168,0.04);border-radius:8px;">
+            ※ Original 모델: Blade 5개, 격자 204,155개 기준 (격자 독립성 검사에서 최적 격자로 선정 후 재해석)
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 8: 격자 독립성 검사 — 방법론
+────────────────────────────────────────────────── -->
+<div class="slide slide-8" data-slide="8">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-60px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 04 · 격자 독립성 검사</div></div>
+        <h2 class="slide-title reveal">격자 독립성 검사 — 방법론</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">📋 검사 목적 및 방법</div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.7;margin-bottom:8px;">
+                    CFD 해석에서 격자(mesh) 수는 정확도와 계산 비용을 결정한다. 격자가 너무 조밀하면 불필요한 계산 시간이, 너무 거칠면 해석 오차가 발생한다. <strong>격자 독립성 검사</strong>를 통해 결과가 수렴하는 최소 격자 수를 결정한다.
+                </p>
+                <div style="font-size:0.74rem;color:#2d4a6a;line-height:1.8;">
+                    <div>🔹 <strong>Size Factor</strong>를 이용한 단계적 격자 조밀화</div>
+                    <div>🔹 인접 격자 간 <strong>변화율 &lt; 1%</strong>를 수렴 기준으로 설정</div>
+                    <div>🔹 Head, Static Efficiency 동시 모니터링</div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">📊 격자 단계별 구성</div>
+                <table>
+                    <thead><tr><th>Factor</th><th>Total Nodes</th><th>Elements</th><th>상태</th></tr></thead>
+                    <tbody>
+                        <tr><td>0.7</td><td>~75,700</td><td>~65,000</td><td><span class="tag tag-red">조대</span></td></tr>
+                        <tr><td>1.0</td><td>~126,200</td><td>~110,000</td><td><span class="tag tag-orange">중간</span></td></tr>
+                        <tr class="highlight"><td><strong>1.2</strong></td><td><strong>213,786</strong></td><td><strong>190,736</strong></td><td><span class="tag tag-green">✅ 선정</span></td></tr>
+                        <tr><td>1.4</td><td>~330,000</td><td>~290,000</td><td><span class="tag tag-blue">수렴 확인</span></td></tr>
+                        <tr><td>1.7</td><td>~580,000</td><td>~510,000</td><td><span class="tag tag-blue">과밀</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;" class="reveal">
+            <div class="photo-box" style="min-height:100px;">
+                <div class="photo-icon">🔷</div>
+                <div>0.7 Factor 격자<br>TurboGrid 메쉬 캡처</div>
+            </div>
+            <div class="photo-box" style="min-height:100px;">
+                <div class="photo-icon">🔷</div>
+                <div>1.0 Factor 격자<br>TurboGrid 메쉬 캡처</div>
+            </div>
+            <div class="photo-box" style="min-height:100px;">
+                <div class="photo-icon">🔷</div>
+                <div>1.2 Factor 격자<br>(최적 선정)<br>TurboGrid 캡처</div>
+            </div>
+            <div class="photo-box" style="min-height:100px;">
+                <div class="photo-icon">🔷</div>
+                <div>1.4 / 1.7 Factor<br>비교 메쉬 캡처</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 9: 격자 독립성 — 수렴 곡선 & 결론
+────────────────────────────────────────────────── -->
+<div class="slide slide-9" data-slide="9">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 04 · 격자 독립성 검사</div></div>
+        <h2 class="slide-title reveal">격자 수렴 곡선 및 최적 격자 선정</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;" class="reveal">
+            <div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                    <div class="photo-box" style="min-height:120px;">
+                        <div class="photo-icon">📈</div>
+                        <div><strong>Head 수렴 곡선</strong><br>Factor 별 Head 변화<br>(그래프 삽입)</div>
+                    </div>
+                    <div class="photo-box" style="min-height:120px;">
+                        <div class="photo-icon">📉</div>
+                        <div><strong>효율 수렴 곡선</strong><br>Factor 별 Efficiency<br>(그래프 삽입)</div>
+                    </div>
+                </div>
+                <div class="photo-box" style="min-height:90px;flex-direction:row;gap:10px;">
+                    <div class="photo-icon" style="font-size:1.4rem;">📊</div>
+                    <div style="text-align:left;"><strong>인접 격자 간 변화율 그래프</strong><br>각 Factor 단계에서의 Head / Eff 변화율 (%) 곡선<br>1.2에서 &lt; 1% 수렴 확인 그래프</div>
+                </div>
+            </div>
+            <div>
+                <div class="blue-card" style="margin-bottom:10px;">
+                    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;opacity:0.8;margin-bottom:8px;">✅ 최적 격자 선정 결과</div>
+                    <div style="font-size:1.3rem;font-weight:800;margin-bottom:2px;">Factor <span style="color:#7ec8f0;">1.2</span></div>
+                    <div style="font-size:0.82rem;opacity:0.9;margin-bottom:10px;">Total Nodes = 213,786<br>Total Elements = 190,736</div>
+                    <div style="font-size:0.74rem;opacity:0.85;line-height:1.7;">
+                        ✓ 모든 구간 변화율 &lt; 1%<br>
+                        ✓ 1.4까지 결과 동일 (&lt; 0.4%)<br>
+                        ✓ 1.4 대비 격자 수 55% 절감
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">💡 선정 근거 (비용-정확도 균형)</div>
+                    <p style="font-size:0.76rem;color:#2d4a6a;line-height:1.7;margin:0;">
+                        Factor 1.4까지 해석 결과 차이가 <strong>&lt; 0.4%</strong>로 거의 동일하나, 격자 수는 약 55% 더 많아진다. 50 Case 이상의 대규모 시뮬레이션에서 계산 비용이 급증하므로, <strong>Factor 1.2가 정확도-비용 최적 균형점</strong>이다.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 10: DOE — LHS 설계 방법론
+────────────────────────────────────────────────── -->
+<div class="slide slide-10" data-slide="10">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-60px;right:-40px;background:#2ec4ff;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · DOE 샘플 설계</div></div>
+        <h2 class="slide-title reveal">실험계획법 (DOE) — 샘플링 전략</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">🎲 Optimal Latin Hypercube Sampling (LHS) 선택 이유</div>
+                <p style="font-size:0.77rem;color:#2d4a6a;line-height:1.7;margin-bottom:8px;">
+                    단순 격자(Full-Factorial)는 5개 변수 × 다수 수준 시 케이스 수가 기하급수적으로 증가한다. LHS는 <strong>전체 설계 공간을 균등하게 커버</strong>하면서 최소 샘플로 최대 정보를 확보한다.
+                </p>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <div style="flex:1;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:8px;text-align:center;font-size:0.73rem;">
+                        <div style="font-weight:700;color:#dc2626;">Full-Factorial</div>
+                        <div style="color:#5a7a99;">공간 편중 발생</div>
+                        <div style="color:#dc2626;font-weight:700;">비효율적</div>
+                    </div>
+                    <div style="flex:1;background:rgba(26,95,168,0.06);border:1px solid rgba(26,95,168,0.15);border-radius:8px;padding:8px;text-align:center;font-size:0.73rem;">
+                        <div style="font-weight:700;color:#1a5fa8;">LHS (선택)</div>
+                        <div style="color:#5a7a99;">균등 공간 커버</div>
+                        <div style="color:#1a5fa8;font-weight:700;">✅ 효율적</div>
+                    </div>
+                </div>
+                <div style="font-size:0.71rem;color:#5a7a99;background:rgba(26,95,168,0.04);border-radius:8px;padding:6px 10px;">
+                    참고: Iman & Conover (1980) - "Latin Hypercube Sampling" / 대리모델 최적화 표준 방법론
+                </div>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">📊 50 Case 구성 방식</div>
+                <table>
+                    <thead><tr><th>블레이드 수</th><th>Case 번호</th><th>케이스 수</th><th>샘플링</th></tr></thead>
+                    <tbody>
+                        <tr><td>5개</td><td>Case 1 ~ 10</td><td>10</td><td>LHS</td></tr>
+                        <tr><td>6개</td><td>Case 11 ~ 20</td><td>10</td><td>LHS</td></tr>
+                        <tr><td>7개</td><td>Case 21 ~ 30</td><td>10</td><td>LHS</td></tr>
+                        <tr><td>8개</td><td>Case 31 ~ 40</td><td>10</td><td>LHS</td></tr>
+                        <tr><td>9개</td><td>Case 41 ~ 50</td><td>10</td><td>LHS</td></tr>
+                        <tr class="highlight"><td colspan="2"><strong>Total</strong></td><td><strong>50 Case</strong></td><td>—</td></tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:8px;font-size:0.73rem;color:#2d4a6a;line-height:1.6;">
+                    블레이드 수를 고정 후, 나머지 4개 연속 변수(β₂, TE 두께, Clearance, Wrap Angle)에 대해 각 블레이드 수별 10점 LHS 적용
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;background:rgba(26,95,168,0.05);border-radius:10px;padding:10px 14px;border-left:3px solid #2ec4ff;">
+            <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:4px;">🔑 50 Case 설정의 논리</div>
+            <div style="font-size:0.76rem;color:#2d4a6a;line-height:1.7;">
+                Kriging 대리모델의 정확도는 샘플 수에 비례한다. 5개 설계 변수에 대해 일반적으로 <strong>변수당 10개 이상의 샘플</strong>이 권장된다 (5 × 10 = 50). 블레이드 수는 이산 변수이므로 5가지 값을 각각 10점씩 별도 샘플링하여 이산-연속 혼합 설계 공간을 효율적으로 커버한다.
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 11: Blade 5개 시뮬 결과 (Case 1–10)
+────────────────────────────────────────────────── -->
+<div class="slide slide-11" data-slide="11">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:250px;height:250px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 블레이드 5개 (Case 1–10)</div></div>
+        <h2 class="slide-title reveal">CFD 시뮬레이션 결과 — 블레이드 5개</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;" class="reveal">
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 1~5 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 6~10 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" class="reveal">
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Head 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#dc2626;">~28–35 m</div>
+                <div style="font-size:0.68rem;color:#dc2626;">목표 37m 미달</div>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Eff. 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#dc2626;">~55–75 %</div>
+                <div style="font-size:0.68rem;color:#dc2626;">목표 80% 미달</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-left:3px solid #f59e0b;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">결론</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#b45309;">블레이드 수 부족<br>→ 유동 분리 다수</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 12: Blade 6개 시뮬 결과 (Case 11–20)
+────────────────────────────────────────────────── -->
+<div class="slide slide-12" data-slide="12">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:250px;height:250px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 블레이드 6개 (Case 11–20)</div></div>
+        <h2 class="slide-title reveal">CFD 시뮬레이션 결과 — 블레이드 6개</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;" class="reveal">
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 11~15 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 16~20 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" class="reveal">
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Head 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~30–38 m</div>
+                <div style="font-size:0.68rem;color:#b45309;">일부 케이스 근접</div>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Eff. 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~62–79 %</div>
+                <div style="font-size:0.68rem;color:#b45309;">목표 근접 케이스 출현</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-left:3px solid #f59e0b;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">결론</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#b45309;">5개 대비 개선<br>→ 추가 탐색 필요</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 13: Blade 7개 시뮬 결과 (Case 21–30)
+────────────────────────────────────────────────── -->
+<div class="slide slide-13" data-slide="13">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:250px;height:250px;top:-50px;right:-40px;background:#2ec4ff;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 블레이드 7개 (Case 21–30)</div></div>
+        <h2 class="slide-title reveal">CFD 시뮬레이션 결과 — 블레이드 7개</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;" class="reveal">
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 21~25 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 26~30 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" class="reveal">
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Head 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~31–38 m</div>
+                <div style="font-size:0.68rem;color:#b45309;">목표 근접</div>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Eff. 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~65–80 %</div>
+                <div style="font-size:0.68rem;color:#b45309;">효율 향상 뚜렷</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-left:3px solid #2ec4ff;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">결론</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#0891b2;">효율 향상 경향<br>→ 8개로 추가 탐색</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 14: Blade 8개 시뮬 결과 (Case 31–40)
+────────────────────────────────────────────────── -->
+<div class="slide slide-14" data-slide="14">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:250px;height:250px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 블레이드 8개 (Case 31–40) ⭐ 최고 성능</div></div>
+        <h2 class="slide-title reveal">CFD 시뮬레이션 결과 — 블레이드 8개 <span style="font-size:1.2rem;">⭐</span></h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;" class="reveal">
+            <div class="photo-box" style="min-height:165px;border-color:#1a5fa8;background:linear-gradient(135deg,#e0ecf8,#d0e8f5);">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 31~35 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+            <div class="photo-box" style="min-height:165px;border-color:#1a5fa8;background:linear-gradient(135deg,#e0ecf8,#d0e8f5);">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 36~40 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" class="reveal">
+            <div class="glass-card" style="text-align:center;border-top:2px solid #1a5fa8;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Head 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#16a34a;">~33–40 m</div>
+                <div style="font-size:0.68rem;color:#16a34a;font-weight:700;">✅ 목표 초과 다수</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-top:2px solid #1a5fa8;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Eff. 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#16a34a;">~70–83 %</div>
+                <div style="font-size:0.68rem;color:#16a34a;font-weight:700;">✅ 목표 80% 달성</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-left:3px solid #1a5fa8;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">결론</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#1a5fa8;">⭐ 전 케이스 최고 성능<br>→ Kriging 최적화 대상</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 15: Blade 9개 시뮬 결과 (Case 41–50)
+────────────────────────────────────────────────── -->
+<div class="slide slide-15" data-slide="15">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:250px;height:250px;top:-50px;right:-40px;background:#6366f1;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 블레이드 9개 (Case 41–50)</div></div>
+        <h2 class="slide-title reveal">CFD 시뮬레이션 결과 — 블레이드 9개</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;" class="reveal">
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 41~45 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+            <div class="photo-box" style="min-height:160px;">
+                <div class="photo-icon">🎨</div>
+                <div><strong>Case 46~50 압력 Contour</strong><br>5장 나란히 배열<br>(CFX 결과 스크린샷)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" class="reveal">
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Head 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~31–38 m</div>
+                <div style="font-size:0.68rem;color:#b45309;">8개 대비 소폭 감소</div>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">Eff. 범위</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">~68–81 %</div>
+                <div style="font-size:0.68rem;color:#b45309;">효율 유사 수준</div>
+            </div>
+            <div class="glass-card" style="text-align:center;border-left:3px solid #f59e0b;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;margin-bottom:4px;">결론</div>
+                <div style="font-size:0.85rem;font-weight:700;color:#b45309;">Blockage 효과 → Head↓<br>→ 8개가 최적</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 16: 50 Case 성능 비교 종합
+────────────────────────────────────────────────── -->
+<div class="slide slide-16" data-slide="16">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 05 · 50 Case 종합 비교</div></div>
+        <h2 class="slide-title reveal">블레이드 수별 성능 종합 비교</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">📊 블레이드 수별 평균 Static Efficiency</div>
+                <div class="bar-chart-h">
+                    <div class="bar-row"><div class="bar-label">5개 Blade</div><div class="bar-track"><div class="bar-fill" data-width="60" style="background:linear-gradient(90deg,#ef4444,#f97316);width:0%;"></div></div><div class="bar-val">~66%</div></div>
+                    <div class="bar-row"><div class="bar-label">6개 Blade</div><div class="bar-track"><div class="bar-fill" data-width="70" style="background:linear-gradient(90deg,#f97316,#f59e0b);width:0%;"></div></div><div class="bar-val">~72%</div></div>
+                    <div class="bar-row"><div class="bar-label">7개 Blade</div><div class="bar-track"><div class="bar-fill" data-width="76" style="background:linear-gradient(90deg,#f59e0b,#22c55e);width:0%;"></div></div><div class="bar-val">~76%</div></div>
+                    <div class="bar-row"><div class="bar-label" style="color:#1a5fa8;font-weight:700;">8개 Blade ⭐</div><div class="bar-track"><div class="bar-fill" data-width="88" style="background:linear-gradient(90deg,#1a5fa8,#2ec4ff);width:0%;"></div></div><div class="bar-val" style="color:#1a5fa8;font-weight:700;">~83%</div></div>
+                    <div class="bar-row"><div class="bar-label">9개 Blade</div><div class="bar-track"><div class="bar-fill" data-width="80" style="background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;"></div></div><div class="bar-val">~80%</div></div>
+                </div>
+                <div style="font-size:0.68rem;color:#5a7a99;margin-top:6px;">평균 Static Efficiency 기준 (50 Case 전체)</div>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">🔑 도출된 핵심 인사이트</div>
+                <ul style="font-size:0.76rem;color:#2d4a6a;line-height:2;padding-left:16px;margin:0;">
+                    <li>블레이드 수 증가 → 일반적 성능↑ (5→8개)</li>
+                    <li>9개 이상에서 <strong>Blockage 효과</strong>로 Head 감소 역전</li>
+                    <li>블레이드 8개가 <strong>최적 이산 변수</strong>로 확정</li>
+                    <li>동일 블레이드 수 내에서도 케이스별 성능 편차 큼 → <strong>연속 변수(β₂, 두께 등) 최적화 필수</strong></li>
+                    <li>Kriging 대리모델로 연속 변수 공간 정밀 탐색 진행</li>
+                </ul>
+                <div style="margin-top:8px;background:rgba(26,95,168,0.06);border-radius:8px;padding:8px 10px;font-size:0.73rem;color:#1a5fa8;font-weight:600;">
+                    ✅ 블레이드 8개 + Kriging 최적화 → Head ≥ 37m, Eff ≥ 80% 동시 달성
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ──────────────────────────────────────────────
+     SLIDE 17: Kriging 대리모델 — 이론 및 구조
+────────────────────────────────────────────────── -->
+<div class="slide slide-17" data-slide="17">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-60px;right:-40px;background:#f59e0b;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 06 · Kriging 대리모델</div></div>
+        <h2 class="slide-title reveal">Kriging 대리모델 — 이론 및 구현</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">📐 Kriging 모델의 수학적 정의</div>
+                <div style="background:rgba(26,95,168,0.05);border-radius:10px;padding:10px 14px;margin-bottom:8px;text-align:center;font-size:0.82rem;color:#1a5fa8;font-family:Georgia,serif;">
+                    <em>ŷ(x) = f(x) + Z(x)</em>
+                </div>
+                <div style="font-size:0.75rem;color:#2d4a6a;line-height:1.7;">
+                    <div>• <strong>f(x)</strong>: 전역 추세 함수 (global trend)</div>
+                    <div>• <strong>Z(x)</strong>: 평균 0, 분산 σ²의 확률 함수 (국소 편차)</div>
+                    <div>• Covariance: <em>Cov[Z(xᵢ),Z(xⱼ)] = σ² R(xᵢ,xⱼ)</em></div>
+                    <div>• R: 상관 함수 (가우시안 커널 적용)</div>
+                </div>
+                <div style="margin-top:8px;font-size:0.71rem;color:#5a7a99;background:rgba(26,95,168,0.04);border-radius:8px;padding:6px 10px;">
+                    Kriging은 기존 샘플 데이터를 100% 통과(exact interpolation)하면서 새로운 점을 예측
+                </div>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">🆚 RSM vs Kriging 비교</div>
+                <table>
+                    <thead><tr><th>항목</th><th>RSM</th><th>Kriging ✅</th></tr></thead>
+                    <tbody>
+                        <tr><td>방법론</td><td>다항회귀</td><td>공간적 상관</td></tr>
+                        <tr><td>보간 방식</td><td>최소자승</td><td>정확 보간</td></tr>
+                        <tr><td>비선형성</td><td>제한적</td><td>✅ 우수</td></tr>
+                        <tr><td>샘플 활용</td><td>평균 근사</td><td>✅ 모든 점 통과</td></tr>
+                        <tr class="highlight"><td>본 연구 적합성</td><td>△</td><td>✅ 선택</td></tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:8px;font-size:0.71rem;color:#2d4a6a;line-height:1.6;">
+                    복잡한 비선형 공간(5개 변수 동시 최적화)에서 <strong>Kriging이 RSM보다 우수한 예측 정확도</strong> 제공
+                </div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px;" class="reveal">
+            <div class="photo-box" style="min-height:95px;">
+                <div class="photo-icon">🤖</div>
+                <div style="font-size:0.72rem;"><strong>Kriging 대리모델</strong><br>반응면 (3D Surface)<br>시각화 결과 삽입</div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #f59e0b;">
+                <div style="font-size:0.72rem;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">🔄 반복 최적화 절차</div>
+                <div style="font-size:0.75rem;color:#2d4a6a;line-height:1.7;">
+                    1차 샘플(50 Case) → Kriging 구축 → 최적점 예측 → CFD 검증 → 오차 &gt; 허용치 시 새 샘플 추가(신규 샘플 세트) → 모델 재구성 → 수렴 시 종료
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 18: Kriging 최적점 탐색 결과
+────────────────────────────────────────────────── -->
+<div class="slide slide-18" data-slide="18">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-60px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 06 · 최적점 탐색 결과</div></div>
+        <h2 class="slide-title reveal">Kriging 최적점 탐색 및 최적 설계 파라미터</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <!-- 최적 파라미터 -->
+            <div>
+                <div class="blue-card" style="margin-bottom:12px;">
+                    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;opacity:0.8;margin-bottom:8px;">🏆 Kriging 예측 최적 파라미터</div>
+                    <table style="color:#fff;font-size:0.75rem;">
+                        <thead><tr><th style="background:rgba(255,255,255,0.15);color:#fff;">변수</th><th style="background:rgba(255,255,255,0.15);color:#fff;">Original</th><th style="background:rgba(255,255,255,0.15);color:#fff;">최적값</th></tr></thead>
+                        <tbody>
+                            <tr style="border-color:rgba(255,255,255,0.2);"><td style="border-color:rgba(255,255,255,0.1);">블레이드 수</td><td style="border-color:rgba(255,255,255,0.1);">5개</td><td style="border-color:rgba(255,255,255,0.1);font-weight:700;color:#7ec8f0;">8개</td></tr>
+                            <tr style="border-color:rgba(255,255,255,0.2);"><td style="border-color:rgba(255,255,255,0.1);">출각 β₂</td><td style="border-color:rgba(255,255,255,0.1);">—</td><td style="border-color:rgba(255,255,255,0.1);font-weight:700;color:#7ec8f0;">최적각 [°]</td></tr>
+                            <tr><td style="border-color:rgba(255,255,255,0.1);">TE 두께</td><td style="border-color:rgba(255,255,255,0.1);">—</td><td style="border-color:rgba(255,255,255,0.1);font-weight:700;color:#7ec8f0;">최소화 [mm]</td></tr>
+                            <tr><td style="border-color:rgba(255,255,255,0.1);">Tip Clearance</td><td style="border-color:rgba(255,255,255,0.1);">—</td><td style="border-color:rgba(255,255,255,0.1);font-weight:700;color:#7ec8f0;">최소화 [mm]</td></tr>
+                            <tr><td style="border-color:rgba(255,255,255,0.1);">Wrap Angle</td><td style="border-color:rgba(255,255,255,0.1);">—</td><td style="border-color:rgba(255,255,255,0.1);font-weight:700;color:#7ec8f0;">최적각 [°]</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="glass-card">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">📊 Kriging 예측 vs CFD 실제</div>
+                    <table>
+                        <thead><tr><th>성능 지표</th><th>Kriging 예측</th><th>CFD 실제</th><th>오차</th></tr></thead>
+                        <tbody>
+                            <tr class="highlight"><td><strong>Head [m]</strong></td><td>≥ 37.0</td><td>확인 필요</td><td style="color:#16a34a;font-weight:700;">0.09%</td></tr>
+                            <tr class="highlight"><td><strong>Static Eff. [%]</strong></td><td>≥ 80.0</td><td>확인 필요</td><td style="color:#16a34a;font-weight:700;">0.23%</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top:8px;font-size:0.72rem;color:#16a34a;font-weight:700;background:rgba(34,197,94,0.06);border-radius:8px;padding:6px 10px;">
+                        ✅ 두 지표 모두 오차 &lt; 1% → 대리모델 신뢰성 입증
+                    </div>
+                </div>
+            </div>
+            <!-- 시각화 -->
+            <div style="display:grid;grid-template-rows:1fr 1fr;gap:10px;">
+                <div class="photo-box">
+                    <div class="photo-icon">🗺️</div>
+                    <div><strong>Kriging 반응면 (2D Contour)</strong><br>β₂ vs Blade수 방향 최적점 시각화<br>Head / Efficiency 등고선 겹침 표시</div>
+                </div>
+                <div class="photo-box">
+                    <div class="photo-icon">🏆</div>
+                    <div><strong>최적 설계 모델 3D 형상</strong><br>BladeGen 최적 블레이드 캡처<br>(8개 블레이드 최적각 적용)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 19: 최종 CFD 검증 결과
+────────────────────────────────────────────────── -->
+<div class="slide slide-19" data-slide="19">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:300px;height:300px;top:-60px;right:-50px;background:#22c55e;opacity:0.07;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 06 · 최종 CFD 검증</div></div>
+        <h2 class="slide-title reveal">최종 CFD 검증 결과 — 목표 달성 확인</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;" class="reveal">
+            <div style="background:linear-gradient(135deg,rgba(26,95,168,0.08),rgba(46,196,255,0.08));border:1px solid rgba(26,95,168,0.18);border-radius:14px;padding:14px;text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#5a7a99;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Original</div>
+                <div style="font-size:1.5rem;font-weight:800;color:#dc2626;">~32.5 m</div>
+                <div style="font-size:0.72rem;color:#5a7a99;">Head</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#dc2626;margin-top:6px;">~75.9 %</div>
+                <div style="font-size:0.72rem;color:#5a7a99;">Static Efficiency</div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;font-size:2rem;color:#1a5fa8;">→</div>
+            <div style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(16,185,129,0.1));border:2px solid rgba(34,197,94,0.3);border-radius:14px;padding:14px;text-align:center;">
+                <div style="font-size:0.7rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">✅ 최적화 결과</div>
+                <div style="font-size:1.5rem;font-weight:800;color:#16a34a;">≥ 37 m</div>
+                <div style="font-size:0.72rem;color:#5a7a99;">Head (목표 달성)</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#16a34a;margin-top:6px;">≥ 80 %</div>
+                <div style="font-size:0.72rem;color:#5a7a99;">Static Eff. (목표 달성)</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" class="reveal">
+            <div class="photo-box" style="min-height:115px;">
+                <div class="photo-icon">🎨</div>
+                <div style="font-size:0.72rem;"><strong>압력 Contour</strong><br>최적 설계 CFX 결과<br>원주 방향 압력 분포</div>
+            </div>
+            <div class="photo-box" style="min-height:115px;">
+                <div class="photo-icon">🌊</div>
+                <div style="font-size:0.72rem;"><strong>Streamline</strong><br>최적 설계 유선 분포<br>박리 현상 감소 확인</div>
+            </div>
+            <div class="photo-box" style="min-height:115px;">
+                <div class="photo-icon">⚡</div>
+                <div style="font-size:0.72rem;"><strong>속도 Vector</strong><br>최적 설계 속도장<br>균일한 출구 유동 확인</div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:10px 14px;">
+            <div style="font-size:0.78rem;font-weight:700;color:#16a34a;margin-bottom:4px;">🎯 Kriging 대리모델 정확도 검증</div>
+            <div style="font-size:0.76rem;color:#2d4a6a;line-height:1.7;">
+                Head 오차 <strong>0.09%</strong>, Static Efficiency 오차 <strong>0.23%</strong> — 두 목표 지표 모두 <strong>오차 1% 이내</strong>로 수렴. 이는 50 Case 데이터 기반 Kriging 대리모델이 실제 CFD 해를 거의 완벽하게 근사함을 입증한다.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 20: 설계 파라미터 효과 분석
+────────────────────────────────────────────────── -->
+<div class="slide slide-20" data-slide="20">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 06 · 파라미터 영향 분석</div></div>
+        <h2 class="slide-title reveal">설계 변수 영향 분석 — 물리적 해석</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="reveal">
+            <div class="glass-card" style="border-left:3px solid #1a5fa8;">
+                <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">📐 블레이드 출각 β₂ 증가 효과</div>
+                <div style="font-size:0.74rem;color:#2d4a6a;line-height:1.7;">
+                    오일러 방정식: <em>H = u₂C_u2/g</em>. 출각↑ → C_u2↑ → <strong>Head↑</strong>. 단, 과도한 출각은 유동 분리를 초래해 효율 저하. 최적 출각은 Head-Efficiency 트레이드오프 균형점.
+                </div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #2ec4ff;">
+                <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">🔢 블레이드 수 증가 효과 (5→8개)</div>
+                <div style="font-size:0.74rem;color:#2d4a6a;line-height:1.7;">
+                    유동 경로 분할 → 블레이드 간 유속 분포 균일화 → Streamline 안정성↑ → 압력 전달면 확대 → <strong>Head↑ · Eff↑</strong>. 9개 이상에서 Blockage 증가로 Head 감소.
+                </div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #f59e0b;">
+                <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">🔩 Tip Clearance 감소 효과</div>
+                <div style="font-size:0.74rem;color:#2d4a6a;line-height:1.7;">
+                    블레이드 팁 누설 유동 감소 → 에너지 손실↓ → <strong>Head↑ · Eff↑</strong>. 1,250 RPM 저속 조건에서 팁 누설의 상대적 기여가 크므로 감소 효과가 뚜렷하다.
+                </div>
+            </div>
+            <div class="glass-card" style="border-left:3px solid #22c55e;">
+                <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">✂️ TE 두께 감소 & Wrap Angle 최적화</div>
+                <div style="font-size:0.74rem;color:#2d4a6a;line-height:1.7;">
+                    TE 두께↓ → 후류 와류(wake) 감소 → 출구 압력 손실↓ → <strong>Eff↑</strong>. Wrap Angle 최적화 → 블레이드 경로 완만 → 유동 박리 억제 → 전 유량 범위 성능 안정.
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;">
+            <div class="photo-box" style="min-height:80px;flex-direction:row;gap:14px;">
+                <div class="photo-icon" style="font-size:1.4rem;">📊</div>
+                <div style="text-align:left;">
+                    <strong>설계 변수 민감도 분석 그래프</strong><br>
+                    <span style="font-size:0.72rem;color:#5a7a99;">각 변수가 Head / Static Efficiency에 미치는 영향도 상대 비교 차트 (Kriging 기반 DOE sensitivity plot 삽입)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 21: 성능 비교 종합표
+────────────────────────────────────────────────── -->
+<div class="slide slide-21" data-slide="21">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">성능 비교 종합</div></div>
+        <h2 class="slide-title reveal">Original vs 최적화 모델 성능 비교</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div>
+                <div class="glass-card" style="margin-bottom:12px;">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">📊 성능 지표 비교</div>
+                    <table>
+                        <thead><tr><th>항목</th><th>Original</th><th>최적 설계</th><th>개선량</th></tr></thead>
+                        <tbody>
+                            <tr><td>블레이드 수</td><td>5개</td><td class="highlight">8개</td><td>+3</td></tr>
+                            <tr><td>Head [m]</td><td>~32.5</td><td class="highlight" style="color:#16a34a;font-weight:700;">≥ 37.0</td><td style="color:#16a34a;font-weight:700;">+4.5↑</td></tr>
+                            <tr><td>Static Eff. [%]</td><td>~75.9</td><td class="highlight" style="color:#16a34a;font-weight:700;">≥ 80.0</td><td style="color:#16a34a;font-weight:700;">+4.1↑</td></tr>
+                            <tr><td>목표 달성</td><td style="color:#dc2626;">❌ 미달</td><td style="color:#16a34a;font-weight:700;">✅ 달성</td><td>—</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="glass-card">
+                    <div style="font-size:0.72rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">🔬 대리모델 검증 오차</div>
+                    <table>
+                        <thead><tr><th>지표</th><th>Kriging 예측</th><th>CFD 실제</th><th>오차</th></tr></thead>
+                        <tbody>
+                            <tr class="highlight"><td>Head</td><td>예측값</td><td>실측값</td><td style="color:#16a34a;font-weight:700;">0.09%</td></tr>
+                            <tr class="highlight"><td>Static Eff.</td><td>예측값</td><td>실측값</td><td style="color:#16a34a;font-weight:700;">0.23%</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="font-size:0.72rem;color:#16a34a;margin-top:6px;font-weight:700;">✅ 두 지표 모두 1% 이내 → 대리모델 완벽 작동</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-rows:1fr 1fr;gap:10px;">
+                <div class="photo-box">
+                    <div class="photo-icon">📈</div>
+                    <div><strong>Head / Efficiency 개선 막대 그래프</strong><br>Original vs 최적화 비교 차트<br>(CFX 결과 기반 성능 비교)</div>
+                </div>
+                <div class="photo-box">
+                    <div class="photo-icon">🗺️</div>
+                    <div><strong>Kriging 반응면 최적점 표시</strong><br>50 Case 데이터 + 최적점 위치<br>설계 공간 시각화</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 22: 고찰 및 한계점
+────────────────────────────────────────────────── -->
+<div class="slide slide-22" data-slide="22">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-60px;right:-40px;background:#f59e0b;opacity:0.06;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">Section 07 · 고찰</div></div>
+        <h2 class="slide-title reveal">고찰 및 한계점</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="reveal">
+            <div>
+                <div class="glass-card" style="border-left:3px solid #22c55e;margin-bottom:12px;">
+                    <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">✅ 본 연구의 성과</div>
+                    <ul style="font-size:0.76rem;color:#2d4a6a;line-height:1.9;padding-left:16px;margin:0;">
+                        <li>Head ≥ 37m, Static Eff. ≥ 80% <strong>동시 달성</strong></li>
+                        <li>50 Case 대규모 DOE로 설계 공간 충분 탐색</li>
+                        <li>Kriging 대리모델 오차 &lt; 1% — 신뢰성 확보</li>
+                        <li>변수당 논문 근거 기반 선정 — 물리적 타당성</li>
+                    </ul>
+                </div>
+                <div class="glass-card" style="border-left:3px solid #f59e0b;">
+                    <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:6px;">⚠️ 한계점 및 개선 방향</div>
+                    <ul style="font-size:0.76rem;color:#2d4a6a;line-height:1.9;padding-left:16px;margin:0;">
+                        <li>SST k-ω 난류 모델 — LES 대비 박리 예측 한계</li>
+                        <li>설계 공간 범위 내 국소 최적해 가능성 존재</li>
+                        <li>단일 유량 조건 해석 — 설계점 외 성능 미검증</li>
+                        <li>격자 품질 일부 구역 경고 (wall y+ 최적화 여지)</li>
+                    </ul>
+                </div>
+            </div>
+            <div>
+                <div class="glass-card">
+                    <div style="font-size:0.78rem;font-weight:700;color:#0f2040;margin-bottom:8px;">🔭 향후 연구 방향</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;font-size:0.76rem;color:#2d4a6a;">
+                        <div style="background:rgba(26,95,168,0.05);border-radius:8px;padding:8px 12px;border-left:2px solid #1a5fa8;">
+                            <strong>다목적 최적화 확장</strong> — Head와 Efficiency를 동시에 최대화하는 Pareto 최적화(NSGA-II 등) 적용
+                        </div>
+                        <div style="background:rgba(46,196,255,0.05);border-radius:8px;padding:8px 12px;border-left:2px solid #2ec4ff;">
+                            <strong>유량 곡선 전체 검토</strong> — 설계점 외 부분 유량/과유량에서의 성능 검증
+                        </div>
+                        <div style="background:rgba(245,158,11,0.05);border-radius:8px;padding:8px 12px;border-left:2px solid #f59e0b;">
+                            <strong>실험 검증</strong> — CFD 최적 설계의 실물 제작 후 성능 곡선 측정으로 해석 신뢰성 최종 확인
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 23: 참고문헌
+────────────────────────────────────────────────── -->
+<div class="slide slide-23" data-slide="23">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:280px;height:280px;top:-50px;right:-40px;background:#1a5fa8;opacity:0.05;"></div>
+    </div>
+    <div class="content">
+        <div class="reveal"><div class="slide-subtitle">References</div></div>
+        <h2 class="slide-title reveal">참고문헌</h2>
+        <div class="title-underline reveal"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="reveal">
+            <div class="glass-card">
+                <div style="font-size:0.7rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">설계 변수 관련</div>
+                <ol style="font-size:0.73rem;color:#2d4a6a;line-height:1.75;padding-left:18px;margin:0;">
+                    <li>Zhao, B. et al. (2019). <em>Influence of blade outlet angle on centrifugal pump performance in high flow condition.</em> <strong>Vacuum</strong>, 159, 393–400. DOI: 10.1016/j.vacuum.2018.10.040</li>
+                    <li style="margin-top:6px;">Li, W. et al. (2023). <em>Effect of Blade Number on the Performance of a Centrifugal Pump.</em> <strong>International Journal of Fluid Machinery and Systems</strong>. Academia.</li>
+                    <li style="margin-top:6px;">Moore, R. D. (1973). <em>Tip clearance effects on performance of axial-flow pumps.</em> <strong>NASA Technical Report</strong> TN D-7340. NASA NTRS.</li>
+                    <li style="margin-top:6px;">He, Y. et al. (2025). <em>Trailing edge shape optimization for centrifugal pump efficiency.</em> <strong>Energy Technology</strong>. DOI: 10.1002/ente.202500022</li>
+                </ol>
+            </div>
+            <div class="glass-card">
+                <div style="font-size:0.7rem;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">최적화 방법론 / Wrap Angle</div>
+                <ol start="5" style="font-size:0.73rem;color:#2d4a6a;line-height:1.75;padding-left:18px;margin:0;">
+                    <li>Chen, J. et al. (2023). <em>Effect of wrap angle on centrifugal pump performance over a wide flow range.</em> <strong>Frontiers in Energy Research</strong>. PMC10543591.</li>
+                    <li style="margin-top:6px;">Forrester, A. I. J., Sóbester, A., &amp; Keane, A. J. (2008). <em>Engineering Design via Surrogate Modelling.</em> <strong>Wiley</strong>. ISBN 978-0-470-06068-1</li>
+                    <li style="margin-top:6px;">Krige, D. G. (1951). <em>A statistical approach to some basic mine valuation problems.</em> <strong>Journal of the Chemical, Metallurgical and Mining Society of South Africa</strong>, 52(6), 119–139.</li>
+                    <li style="margin-top:6px;">McKay, M. D., Beckman, R. J., &amp; Conover, W. J. (1979). <em>A comparison of three methods for selecting values of input variables.</em> <strong>Technometrics</strong>, 21(2), 239–245.</li>
+                </ol>
+            </div>
+        </div>
+        <div class="reveal" style="margin-top:10px;padding:8px 12px;background:rgba(26,95,168,0.04);border-radius:8px;font-size:0.72rem;color:#5a7a99;">
+            ※ 모든 참고문헌은 SCI/SCIE 등재 저널 또는 NASA 공식 기술 보고서 · 저명 교과서로부터 인용되었습니다.
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────
+     SLIDE 24: 마무리
+────────────────────────────────────────────────── -->
+<div class="slide slide-24" data-slide="24" style="background: linear-gradient(150deg, #0d2645 0%, #102f5a 50%, #0a1e38 100%);">
+    <div class="gradient-mesh">
+        <div class="blob" style="width:500px;height:500px;top:-100px;right:-80px;background:#1a5fa8;opacity:0.18;"></div>
+        <div class="blob" style="width:300px;height:300px;bottom:-60px;left:-60px;background:#2ec4ff;opacity:0.12;"></div>
+        <div class="blob" style="width:200px;height:200px;top:45%;left:10%;background:#f59e0b;opacity:0.08;"></div>
+    </div>
+    <canvas class="particle-canvas"></canvas>
+    <div class="content text-center" style="color:#fff;">
+        <div style="font-size:80px;animation:float 3.5s ease-in-out infinite;margin-bottom:1rem;" class="reveal">🎯</div>
+        <h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:400;background:linear-gradient(135deg,#7ec8f0,#ffffff,#f0d080);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.2rem;" class="reveal">감사합니다</h2>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:700px;margin:0 auto;" class="reveal">
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(46,196,255,0.25);border-radius:12px;padding:12px;">
+                <div style="font-size:1.2rem;font-weight:800;color:#2ec4ff;">50+</div>
+                <div style="font-size:0.68rem;color:#7ec8f0;">CFD 시뮬레이션</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(46,196,255,0.25);border-radius:12px;padding:12px;">
+                <div style="font-size:1.2rem;font-weight:800;color:#2ec4ff;">5개</div>
+                <div style="font-size:0.68rem;color:#7ec8f0;">설계 변수 (논문 근거)</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(46,196,255,0.25);border-radius:12px;padding:12px;">
+                <div style="font-size:1.2rem;font-weight:800;color:#2ec4ff;">&lt;1%</div>
+                <div style="font-size:0.68rem;color:#7ec8f0;">대리모델 예측 오차</div>
+            </div>
+        </div>
+        <div style="margin-top:1.2rem;font-size:0.8rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#7ec8f0;" class="reveal">
+            유체기계설계 · 2026 · Head ≥ 37m · Static Efficiency ≥ 80%
+        </div>
+    </div>
+</div>
+
+</div><!-- end .deck -->
+
+<!-- NAVIGATION -->
+<div class="nav-controls">
+    <button class="nav-btn" onclick="changeSlide(-1)">&#8249;</button>
+    <div class="slide-dots" id="dots"></div>
+    <button class="nav-btn" onclick="changeSlide(1)">&#8250;</button>
+    <span class="slide-counter" id="counter">1 / 25</span>
+</div>
+
+<script>
+    let current = 1;
+    const total = document.querySelectorAll('.slide').length;
+    const dotsContainer = document.getElementById('dots');
+    const counter = document.getElementById('counter');
+    for (let i = 1; i <= total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === 1 ? ' active' : '');
+        dot.onclick = () => goToSlide(i);
+        dotsContainer.appendChild(dot);
+    }
+    function goToSlide(n) {
+        const prev = document.querySelector('.slide.active');
+        const next = document.querySelector(`.slide[data-slide="${n}"]`);
+        if (prev) prev.classList.remove('active');
+        if (next) { next.classList.add('active'); animateSlide(next); }
+        current = n; updateNav();
+    }
+    function changeSlide(dir) { let next = current + dir; if (next < 1) next = total; if (next > total) next = 1; goToSlide(next); }
+    function updateNav() {
+        document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === current); });
+        counter.textContent = current + ' / ' + total;
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); }
+    });
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener('touchend', (e) => { const diff = touchStartX - e.changedTouches[0].clientX; if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1); });
+
+    function animateSlide(slide) {
+        slide.querySelectorAll('.reveal').forEach((el, i) => {
+            el.style.transition = 'none';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(18px)';
+            el.offsetHeight;
+            const delay = i * 0.07;
+            el.style.transition = `opacity 0.32s ease ${delay}s, transform 0.32s ease ${delay}s`;
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0px)';
+        });
+        animateSlideEffects(slide);
+    }
+
+    function animateSlideEffects(slide) {
+        slide.querySelectorAll('.bar-fill:not(.fill-init)').forEach((bar, i) => {
+            bar.classList.add('fill-init');
+            bar.style.width = '0%';
+            bar.style.transition = `width 0.7s ease ${i * 0.1}s`;
+            bar.offsetHeight;
+            bar.style.width = bar.dataset.width + '%';
+        });
+        slide.querySelectorAll('[data-count]:not(.counted)').forEach(el => {
+            el.classList.add('counted');
+            const target = parseInt(el.dataset.count);
+            const suffix = el.dataset.suffix || '', prefix = el.dataset.prefix || '';
+            let cur = 0; const step = target / 40;
+            const timer = setInterval(() => { cur += step; if (cur >= target) { cur = target; clearInterval(timer); } el.textContent = prefix + Math.round(cur).toLocaleString() + suffix; }, 30);
+        });
+    }
+
+    /* Mouse spotlight */
+    document.addEventListener('mousemove', (e) => {
+        const spotlight = document.querySelector('.mouse-spotlight');
+        if (spotlight) {
+            spotlight.style.background = `radial-gradient(500px circle at ${e.clientX}px ${e.clientY}px, rgba(26,95,168,0.05), transparent 40%)`;
+        }
+    });
+
+    /* Particle Canvas */
+    window.initParticles = function(canvas, options) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth || window.innerWidth;
+        canvas.height = canvas.offsetHeight || window.innerHeight;
+        const count = options.count || 40;
+        let mx = -1000, my = -1000;
+        const particles = Array.from({ length: count }, () => ({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25,
+            size: Math.random() * 2 + 0.7, alpha: Math.random() * 0.3 + 0.08
+        }));
+        canvas.addEventListener('mousemove', (e) => { const rect = canvas.getBoundingClientRect(); mx = e.clientX - rect.left; my = e.clientY - rect.top; });
+        canvas.addEventListener('mouseleave', () => { mx = -1000; my = -1000; });
+        (function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                const dx = p.x - mx, dy = p.y - my, dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 100) { const force = (100 - dist) / 100 * 1.5; p.vx += (dx / dist) * force * 0.08; p.vy += (dy / dist) * force * 0.08; }
+                p.vx *= 0.98; p.vy *= 0.98; p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(180,210,240,${p.alpha})`; ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        })();
+    };
+    document.querySelectorAll('.particle-canvas').forEach(c => window.initParticles(c, { count: 45 }));
+
+    try { animateSlide(document.querySelector('.slide.active')); } catch(e) { console.warn(e); }
+</script>
+</body>
+</html>
